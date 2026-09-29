@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1118">
+<title>百家樂牌路分析器 3.2</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b1118;color:#f4f7fb;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:900px;margin:auto;padding:14px}.card{background:#151d27;border:1px solid #2d3947;border-radius:18px;padding:15px;margin-bottom:13px}
+h1{font-size:25px;margin:0 0 5px}h2{font-size:19px;margin:0 0 10px}.muted{color:#8e9aaa;font-size:13px}.row{display:flex;gap:8px;flex-wrap:wrap}
+button,input,select{font:inherit;border:1px solid #394656;border-radius:11px;background:#222c38;color:#fff;padding:11px 13px}
+button{cursor:pointer;touch-action:manipulation}.b{background:#1769e8}.p{background:#d83b36}.t{background:#238b50}.gray{background:#303b49}
+.bigBtns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}.bigBtns button{min-height:65px;font-size:20px;font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.stat{background:#202a36;border-radius:12px;padding:10px}.num{font-size:23px;font-weight:700}
+.seq{word-break:break-all;line-height:2.1}.dot{display:inline-block;width:27px;height:27px;border-radius:50%;text-align:center;line-height:27px;margin:2px;font-size:11px;font-weight:700}.B{background:#1769e8}.P{background:#d83b36}.T{background:#238b50}
+.road{overflow:auto}.grid{display:grid;grid-auto-rows:27px;gap:2px;min-width:680px}.cell{width:25px;height:25px;border:1px solid #526070;border-radius:50%;font-size:10px;text-align:center;line-height:23px}.r{color:#ff817d;border-color:#ff5d59}.x{color:#78b1ff;border-color:#5797ed}
+.result{background:#202a36;border-radius:12px;padding:12px}.ok{color:#3fb950}.warn{color:#d29922}
+.drop{border:2px dashed #465466;border-radius:14px;padding:18px;text-align:center}img{max-width:100%;max-height:380px;border-radius:12px;margin-top:10px}
+table{width:100%;border-collapse:collapse}th,td{padding:7px;border-bottom:1px solid #303b49;text-align:left}
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.wrap{padding:10px}.card{padding:13px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="card">
+<h1>🎰 百家樂牌路分析器 3.2</h1>
+<div class="muted">手機網頁版｜資料只保存在此瀏覽器的本機儲存空間</div>
+</div>
+
+<div class="card">
+<h2>🎯 快速記錄</h2>
+<div class="bigBtns">
+<button class="b" onclick="add('B')">莊 B</button>
+<button class="p" onclick="add('P')">閒 P</button>
+<button class="t" onclick="add('T')">和 T</button>
+</div>
+<div class="row" style="margin-top:9px">
+<button class="gray" onclick="undo()">↩ 撤銷</button>
+<button class="gray" onclick="clearResults()">清空</button>
+<button class="gray" onclick="exportData()">📤 匯出</button>
+<label><input id="importFile" type="file" accept=".json" hidden onchange="importData(event)"><button class="gray" onclick="importFile.click()">📥 匯入</button></label>
+</div>
+</div>
+
+<div class="card"><h2>📊 總覽</h2><div id="stats" class="stats"></div><div id="seq" class="seq" style="margin-top:7px"></div></div>
+
+<div class="card">
+<h2>📷 路單截圖</h2>
+<div class="drop">
+<input id="photoInput" type="file" accept="image/*" hidden onchange="loadPhoto(event)">
+<button class="gray" onclick="photoInput.click()">選擇路單截圖</button>
+<div class="muted" style="margin-top:8px">截圖後先確認辨識序列，再加入牌路。</div>
+<div id="photoBox"></div>
+</div>
+<div id="scanBox" style="display:none;margin-top:10px">
+<div class="muted">辨識序列（可修改）</div>
+<input id="scanSeq" style="width:100%;margin-top:6px" placeholder="例如 BPPBBTP">
+<div class="row" style="margin-top:7px"><button class="b" onclick="applyScan()">確認加入</button><button class="gray" onclick="scanPhoto()">重新辨識</button></div>
+<div id="scanInfo" class="result" style="margin-top:8px"></div>
+</div>
+</div>
+
+<div class="card"><h2>📈 近期分析</h2>
+<div class="row">窗口<select id="win" onchange="render()"><option>10</option><option selected>20</option><option>30</option><option>50</option><option>100</option></select></div>
+<div id="analysis" class="result" style="margin-top:9px"></div>
+</div>
+
+<div class="card">
+<h2>🛣️ 牌路</h2>
+<h3>大路</h3><div class="road"><div id="big" class="grid"></div></div>
+<h3>大眼仔</h3><div class="road"><div id="eye" class="grid"></div></div>
+<h3>小路</h3><div class="road"><div id="small" class="grid"></div></div>
+<h3>蟑螂路</h3><div class="road"><div id="cock" class="grid"></div></div>
+</div>
+
+<div class="card">
+<h2>💰 下注紀錄</h2>
+<div class="row">
+<input id="amt" type="number" min="0" placeholder="金額">
+<select id="side"><option value="B">莊</option><option value="P">閒</option><option value="T">和</option></select>
+<select id="outcome"><option value="W">贏</option><option value="L">輸</option><option value="N">和</option></select>
+<button class="b" onclick="addBet()">加入</button>
+</div>
+<div id="bank" class="result" style="margin-top:9px"></div>
+<table><thead><tr><th>#</th><th>注</th><th>金額</th><th>結果</th><th>損益</th></tr></thead><tbody id="bets"></tbody></table>
+</div>
+
+<div class="card"><div class="muted">提醒：牌路只能整理歷史結果，不能保證下一局結果。請自行決定是否下注與下注金額。</div></div>
+</div>
+
+<script>
+let results=[],bets=[],lastImage=null;
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem('bac32',JSON.stringify({results,bets}))}
+function load(){try{const x=JSON.parse(localStorage.getItem('bac32')||'{}');results=x.results||[];bets=x.bets||[]}catch{}}
+function add(x){results.push(x);save();render()}
+function undo(){if(results.length){results.pop();save();render()}}
+function clearResults(){if(confirm('確定清空全部牌路？')){results=[];save();render()}}
+function render(){
+ const B=results.filter(x=>x==='B').length,P=results.filter(x=>x==='P').length,T=results.filter(x=>x==='T').length,n=results.length,non=n-T;
+ stats.innerHTML=`<div class=stat>總局<div class=num>${n}</div></div><div class=stat>莊<div class=num>${B}</div><small>${non?(B/non*100).toFixed(1):0}%</small></div><div class=stat>閒<div class=num>${P}</div><small>${non?(P/non*100).toFixed(1):0}%</small></div><div class=stat>和<div class=num>${T}</div></div>`;
+ seq.innerHTML=results.map((x,i)=>`<span class="dot ${x}" title="第${i+1}局">${x}</span>`).join('');
+ drawBig();drawDer('eye',2);drawDer('small',3);drawDer('cock',4);analysis();renderBets();
+}
+function getCols(){const s=results.filter(x=>x!=='T'),a=[];let c=[],last='';for(const x of s){if(x===last)c.push(x);else{if(c.length)a.push(c);c=[x];last=x}}if(c.length)a.push(c);return a}
+function drawBig(){const a=getCols(),c=[];a.forEach((v,i)=>v.forEach((x,r)=>c.push([i,r,x])));draw('big',c)}
+function drawDer(id,o){const a=getCols(),c=[];for(let i=o;i<a.length;i++)for(let r=0;r<a[i].length;r++)c.push([i,r,r<a[i-o].length?'R':'X']);draw(id,c)}
+function draw(id,cells){const e=$(id);e.innerHTML='';if(!cells.length)return;const m=Math.max(...cells.map(x=>x[0]));e.style.gridTemplateColumns=`repeat(${Math.max(25,m+2)},27px)`;cells.forEach(([x,y,v])=>{const d=document.createElement('div');d.className='cell '+(v==='R'?'r':'x');d.textContent=v;d.style.gridColumn=x+1;d.style.gridRow=y+1;e.appendChild(d)})}
+function analysis(){const s=results.filter(x=>x!=='T'),w=+$('win').value,r=s.slice(-w),B=r.filter(x=>x==='B').length,P=r.filter(x=>x==='P').length,last=s.at(-1);let st=0;if(last)for(let i=s.length-1;i>=0&&s[i]===last;i--)st++;$('analysis').innerHTML=`最近 ${r.length} 局：莊 ${B}、閒 ${P}<br>目前 ${last?(last==='B'?'連莊':'連閒'):'無資料'} ${st} 局`}
+function addBet(){const a=+$('amt').value;if(!a)return;const o=$('outcome').value;bets.push({side:$('side').value,amt:a,outcome:o,profit:o==='W'?a:o==='L'?-a:0});save();renderBets()}
+function renderBets(){const total=bets.reduce((s,x)=>s+x.profit,0);bank.innerHTML=`累計損益：<b class="${total>=0?'ok':'warn'}">${total>=0?'+':''}${total}</b>　共 ${bets.length} 筆`;$('bets').innerHTML=bets.map((b,i)=>`<tr><td>${i+1}</td><td>${b.side}</td><td>${b.amt}</td><td>${b.outcome}</td><td>${b.profit>=0?'+':''}${b.profit}</td></tr>`).join('')}
+function exportData(){const blob=new Blob([JSON.stringify({results,bets},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='baccarat-3.2.json';a.click()}
+function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);results=x.results||[];bets=x.bets||[];save();render()}catch{alert('JSON 格式錯誤')}};r.readAsText(f)}
+function loadPhoto(e){const f=e.target.files[0];if(!f)return;lastImage=f;const u=URL.createObjectURL(f);photoBox.innerHTML=`<img id="photo" src="${u}" alt="路單截圖">`;scanBox.style.display='block';const im=new Image();im.onload=()=>scan(im);im.src=u}
+function scanPhoto(){if(!lastImage)return;const u=URL.createObjectURL(lastImage),im=new Image();im.onload=()=>scan(im);im.src=u}
+function scan(im){
+ const w=im.naturalWidth||im.width,h=im.naturalHeight||im.height;
+ // For the supplied screenshot: lower-left bead road. Use a conservative crop.
+ const sx=Math.floor(w*.02),sy=Math.floor(h*.68),ex=Math.floor(w*.68),ey=Math.floor(h*.89);
+ const c=document.createElement('canvas'),ctx=c.getContext('2d'),cw=ex-sx,ch=ey-sy;c.width=cw;c.height=ch;ctx.drawImage(im,sx,sy,cw,ch,0,0,cw,ch);
+ const d=ctx.getImageData(0,0,cw,ch).data;
+ const rows=6,cols=Math.max(8,Math.min(13,Math.round(cw/(ch/6)*.62))),seq=[];
+ for(let col=0;col<cols;col++)for(let row=0;row<rows;row++){
+   const cx=(col+.5)*cw/cols,cy=(row+.5)*ch/rows,rad=Math.max(5,Math.min(cw/cols,ch/rows)*.28);
+   let rb=0,rr=0,gg=0;
+   for(let y=Math.max(0,cy-rad);y<Math.min(ch,cy+rad);y++)for(let x=Math.max(0,cx-rad);x<Math.min(cw,cx+rad);x++){
+     const i=(Math.floor(y)*cw+Math.floor(x))*4,R=d[i],G=d[i+1],B=d[i+2],sat=Math.max(R,G,B)-Math.min(R,G,B);
+     if(sat>45){if(B>R*1.18&&B>G*1.05)rb++;if(R>B*1.18&&R>G*1.08)rr++;if(G>R*1.15&&G>B*1.05)gg++}
+   }
+   if(rr>Math.max(rb*1.15,8))seq.push('B');else if(rb>Math.max(rr*1.15,8))seq.push('P');else if(gg>Math.max(rr,rb)*1.2&&gg>8)seq.push('T');
+ }
+ scanSeq.value=seq.join('');scanInfo.innerHTML=`已掃描路單區域，暫時辨識到 <b>${seq.length}</b> 個標記。<br><span class="warn">請先確認序列；不同平台／裁切方式可能造成誤判。</span>`;
+}
+function applyScan(){const s=scanSeq.value.toUpperCase().replace(/[^BPT]/g,'');if(!s)return alert('沒有可加入的 B/P/T');results.push(...s.split(''));save();render();scanInfo.innerHTML+=`<br><span class="ok">已加入 ${s.length} 局。</span>`}
+load();render();
+</script>
+</body>
+</html>
